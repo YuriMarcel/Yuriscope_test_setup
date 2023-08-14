@@ -1,7 +1,17 @@
 import time
+import cv2
 import functions as f
 
-ser_motor, led_list = f.setup_com()
+
+#setup seriell communication
+ser_motor = f.setup_com()
+
+#vid = f.auto_adjust_exposure()
+
+#f.get_beam_center(vid)
+
+
+
 
 while True:
     x = input("Input to Arduino: ")
@@ -16,3 +26,4 @@ while True:
                 break
             print(line)
         time.sleep(0.01)
+
