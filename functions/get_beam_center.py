@@ -1,7 +1,7 @@
 import numpy as np
 import cv2
 
-def get_beam_center(vid):
+def get_beam_center_old(vid):
     
     for _ in range(5):
         ret, frame = vid.read()

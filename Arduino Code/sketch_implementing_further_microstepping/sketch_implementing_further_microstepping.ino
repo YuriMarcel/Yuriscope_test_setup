@@ -71,8 +71,9 @@ void loop() {
   if (Serial.available() > 0)  { // Check if values are available in the Serial Buffer
 
     move_finished = 0; // Set variable for checking move of the Stepper
-    String TravelX = Serial.readStringUntil('\n');
-
+    String TravelX = Serial.readString();  // read input
+    TravelX.trim();
+    Serial.print(TravelX);
     if (TravelX == "start") {
       Serial.println("Homeing process started!");
       epos[0]=homeing(home_switch_0,0);
@@ -134,7 +135,7 @@ void updateEncoder_1() {
 }
 
 int homeing(int home_switch, int i) {
-  steppers[i]->setMaxSpeed(200);
+  steppers[i]->setMaxSpeed(400);
   steppers[i]->setAcceleration(100.0);
   while (digitalRead(home_switch)) { // Make the Stepper move CCW until the switch is activated
     steppers[i]->moveTo(initial_homing);  // Set the position to move to
@@ -182,9 +183,9 @@ int moveStepper(int i, int d, volatile int ary[]) {
     }
     else {
 
-      Serial.println("COMPLETED and NO DEVIATION!" );
-      Serial.print("The encoder is at position:  ");
-      Serial.println(ary[i]);
+      //Serial.println("COMPLETED and NO DEVIATION!" );
+      //Serial.print("The encoder is at position:  ");
+      //Serial.println(ary[i]);
       Serial.print("x");
       move_finished = 1; // Reset move variable
     }
@@ -193,26 +194,36 @@ int moveStepper(int i, int d, volatile int ary[]) {
   return 0;
 }
 
-
 void Saftey_0() {
   if (digitalRead(saftey_switch_0)) {
     Serial.println("Safety Switch 0 activated");
-    stepper0.moveTo(0);  // Set new moveto position of Stepper
-    distance = 0;
-    delay(100);  // Wait 1 seconds before moving the Stepper
-    if ((stepper0.distanceToGo() != 0)) {
-      stepper0.run();  // Move Stepper into position
+    stepper0.stop();  // Stop the stepper immediately
+    if (digitalRead(saftey_switch_0)) {
+      delay(100);  // Wait and check again if the safety switch is still activated
     }
+    Serial.print("x");
   }
 }
 void Saftey_1() {
   if (digitalRead(saftey_switch_1)) {
     Serial.println("Safety Switch 1 activated");
-    stepper1.moveTo(0);  // Set new moveto position of Stepper
-    distance = 0;
-    delay(100);  // Wait 1 seconds before moving the Stepper
-    if ((stepper1.distanceToGo() != 0)) {
-      stepper1.run();  // Move Stepper into position
+    stepper1.stop();  // Stop the stepper immediately
+    if (digitalRead(saftey_switch_1)) {
+      delay(100);  // Wait and check again if the safety switch is still activated
     }
+    Serial.print("x");
   }
 }
+
+
+//void Saftey_1() {
+  //if (digitalRead(saftey_switch_1)) {
+   // Serial.println("Safety Switch 1 activated");
+    //stepper1.moveTo(0);  // Set new moveto position of Stepper
+    //distance = 0;
+    //delay(100);  // Wait 1 seconds before moving the Stepper
+    //if ((stepper1.distanceToGo() != 0)) {
+     // stepper1.run();  // Move Stepper into position
+  //  }
+ // }
+//}
