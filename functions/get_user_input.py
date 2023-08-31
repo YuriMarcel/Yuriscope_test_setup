@@ -24,7 +24,7 @@ def get_user_input():
             dropdown.set(options[0])  # Setzen Sie die Standardoption
             entries.append(dropdown)
         elif label == "Exposure time Values for each LED":
-            options = ["Load from given path", "Get new values"]
+            options = ["Load from given path", "Get new values","Check values"]
             dropdown = ttk.Combobox(root, values=options)
             dropdown.grid(row=i, column=1, padx=10, pady=5)
             dropdown.set(options[0])  # Setzen Sie die Standardoption

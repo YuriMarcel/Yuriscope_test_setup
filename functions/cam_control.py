@@ -11,6 +11,9 @@ from tkinter import ttk
 import os
 import imageio
 from PIL import Image
+import matplotlib.pyplot as plt
+
+
 
 
 root = None
@@ -67,7 +70,6 @@ def save_image(path, LED):
 
     print(f"Bild mit LED: {LED_name} unter {bmp_file_path} gespeichert!")
 
-
 """
 def save_image(path, LED):
     LED_name = LED.replace(".", "_")
@@ -88,7 +90,6 @@ def save_image(path, LED):
 
     print(f"Bild mit LED: {LED_name} unter {bmp_file_path} gespeichert!")
 """
-
 
 def close_gui():
         global process
@@ -165,7 +166,6 @@ def analyze_image(data):
     overexposed_pixels = np.sum(image > 200)
     mean_value = np.mean(image)
     return overexposed_pixels, mean_value
-
 
 def save_beamcenter(folder,image,centroidX,centroidY):
     print("saving the figure")
@@ -381,22 +381,173 @@ def find_exposure_manually(ser2,ser1345,exposure_path):
     exposure_entry.pack(pady=10, padx=20, fill=tk.X)
 
     # Fügen Sie einen Button hinzu, um die Belichtungszeit zu aktualisieren
-    update_button = tk.Button(root, text="Belichtungszeit aktualisieren", command=set_exposure_from_entry)
+    update_button = tk.Button(root, text="update exposure time", command=set_exposure_from_entry)
     update_button.pack(pady=10)
 
+    
     # Setzen Sie die gewünschte Auflösung mit v4l2-ctl
     sub.run(["v4l2-ctl", "--device", "/dev/video0", "--set-fmt-video=width=3000,height=4000,pixelformat=0"], 
             stdout=sub.DEVNULL, 
             stderr=sub.DEVNULL)
 
-    update_values()
-
-    # Starten Sie die Haupt-GUI-Schleife
-
     not_working_button = tk.Button(root, text="LED not working", command=lambda: mark_led_as_not_working(ser2,ser1345,exposure_path))
     not_working_button.pack(pady=20)
+
+    update_values()
+
+    
 
     #close_button = tk.Button(root, text="Continue with finding Beamcenter", command=close_gui)
     #close_button.pack(pady=20)
 
     root.mainloop()
+
+def raw_to_cv2_image(raw_data, width, height):
+    img_array = np.frombuffer(raw_data, dtype=np.uint8).reshape((height, width))
+    return img_array
+
+def capture_raw_image():
+    cmd_setup = ["v4l2-ctl", "--device", "/dev/video0", "--set-fmt-video=width=4000,height=3000,pixelformat=0"]
+    sub.run(cmd_setup)
+    cmd_capture = ["v4l2-ctl", "--device", "/dev/video0", "--stream-mmap", "--stream-to=-", "--stream-count=1"]
+    result = sub.run(cmd_capture, capture_output=True)
+    if result.returncode != 0:
+        print("Fehler beim Aufnehmen des Bildes.")
+        return None
+    return result.stdout
+
+def compute_shift_from_raw(raw_image1, raw_image2):
+    img1 = raw_to_cv2_image(raw_image1, 4000, 3000)
+    img2 = raw_to_cv2_image(raw_image2, 4000, 3000)
+
+    # Display the images in pop-up windows
+    cv2.imshow('Image 1', img1)
+    cv2.imshow('Image 2', img2)
+    cv2.waitKey(0)  # Wait until a key is pressed
+    cv2.destroyAllWindows()  # Close the windows
+    
+    warp_mode = cv2.MOTION_TRANSLATION
+    warp_matrix = np.eye(2, 3, dtype=np.float32)
+    number_of_iterations = 5000
+    termination_eps = 1e-10
+    criteria = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, number_of_iterations, termination_eps)
+    
+    _, warp_matrix = cv2.findTransformECC(img2, img1, warp_matrix, warp_mode, criteria)
+    dx = warp_matrix[0,2]
+    dy = warp_matrix[1,2]
+    return dx, dy
+
+def get_pixelshift_LED(ser1345):
+    print("Start getting pixelshift")
+    f.LED_control(ser1345,"3101")
+    time.sleep(1)
+    raw_img1 = capture_raw_image()
+    f.LED_control(ser1345,"0000")
+    f.LED_control(ser1345,"3102")
+    time.sleep(1)
+    raw_img2 = capture_raw_image()
+
+
+    # Estimate pixel shift
+    x_shift, y_shift = compute_shift_from_raw(raw_img1, raw_img2)
+    print(f"X Shift: {x_shift}, Y Shift: {y_shift}")
+
+
+
+def check_exposure_values(ser2, ser1345, exposure_times):
+    exposure_times_transformed = {key.replace(".", "1"): value for key, value in exposure_times.items()}
+    global current_led_index, leds, exposure_label, overexposed_label, mean_value_label,led_label
+
+    # Erstellen Sie ein Hauptfenster
+    root = tk.Tk()
+    root.title("Check Exposure Values")
+    root.geometry('500x400')
+
+    # Fügen Sie ein Label hinzu, um den aktuellen LED-Status anzuzeigen
+    led_label = tk.Label(root, text=f"Current LED: {leds[current_led_index]}")
+    led_label.pack(pady=10)
+
+    overexposed_label = tk.Label(root, text="Overexposed Pixels: Loading...")
+    overexposed_label.pack(pady=10)
+
+    mean_value_label = tk.Label(root, text="Mean Value: Loading...")
+    mean_value_label.pack(pady=10)
+
+    # Fügen Sie einen Button hinzu, um zur nächsten LED zu wechseln
+    next_led_button = tk.Button(root, text="Go to next LED", command=lambda: switch_to_next_led(ser2, ser1345, exposure_times_transformed))
+    next_led_button.pack(pady=20)
+
+    exposure_label = tk.Label(root, text="Current Exposure Time: Loading...")
+    exposure_label.pack(pady=10)
+
+    # Fügen Sie einen Button hinzu, um das Bild anzuzeigen
+    show_image_button = tk.Button(root, text="Show Picture", command=show_image)
+    show_image_button.pack(pady=20)
+
+    root.mainloop()
+
+def show_image():
+    global current_led_index, leds
+
+    # Nehmen Sie ein Bild auf
+    image_data = capture_raw_image()
+
+    image = np.frombuffer(image_data, dtype=np.uint8).reshape(3000, 4000)
+    plt.imshow(image, cmap='gray')  # cmap='gray' ist optional, je nachdem, wie Ihr Bild aussieht
+    plt.title(f"Image for LED {leds[current_led_index]}")
+    plt.show()
+
+
+def update_values_and_show_image(ser2, ser1345, exposure_times):
+    global current_led_index, leds, exposure_label, overexposed_label, mean_value_label
+
+    # Holen Sie sich den aktuellen LED-Namen
+    led_list = leds[current_led_index]
+    # Überprüfen Sie, ob led_list im exposure_times-Wörterbuch vorhanden ist
+    if led_list not in exposure_times:
+        print(f"Fehler: {led_list} nicht in exposure_times gefunden!")
+        return
+
+    # Setzen Sie die Belichtungszeit für die aktuelle LED
+    exposure_time = exposure_times[led_list]
+    f.set_exposure(int(exposure_time * 1000))
+
+    # Nehmen Sie ein Bild auf
+    image_data = capture_raw_image()
+
+    # Analysieren Sie das Bild
+    overexposed_pixels, mean_value = analyze_image(image_data)
+
+    # Zeigen Sie das Bild mit cv2 an
+    #image = np.frombuffer(image_data, dtype=np.uint8).reshape(3000, 4000)
+    #plt.imshow(image, cmap='gray')  # cmap='gray' ist optional, je nachdem, wie Ihr Bild aussieht
+    #plt.title(f"Image for LED {led_list}")
+    #plt.show()
+
+    # Aktualisieren Sie die GUI-Labels mit den neuen Werten
+    exposure_label.config(text=f"Current Exposure Time: {exposure_time} ms")
+    led_label.config(text=f"Current LED: {led_list}")
+    overexposed_label.config(text=f"Overexposed Pixels: {overexposed_pixels}")
+    mean_value_label.config(text=f"Mean Value: {mean_value}")
+    
+"""
+def switch_to_next_led(ser_led2, ser_led1345, exposure_times):
+    
+    global current_led_index
+
+    if leds[current_led_index][0] == "2":
+            f.LED_control(ser_led2,"0000")
+    else:
+            f.LED_control(ser_led1345,"0000")
+
+    if leds[current_led_index][0] == "2":
+            f.LED_control(ser_led2,leds[current_led_index])
+    else:
+            f.LED_control(ser_led1345,leds[current_led_index])
+
+
+    current_led_index += 1
+    if current_led_index >= len(leds):
+        current_led_index = 0
+    update_values_and_show_image(ser_led2, ser_led1345, exposure_times)
+"""

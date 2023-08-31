@@ -2,6 +2,51 @@ import functions as f
 import time
 import json
 
+def get_exposure_values_p_control():
+
+    Kp = 50
+
+    ExposureTime = 200 * 1e3  # Startwert für die Belichtungszeit
+    while True:
+        f.set_exposure(ExposureTime)
+        #time.sleep(0.1)
+        raw_data = f.capture_image()
+        overexposed_pixels, mean_value = f.analyze_image(raw_data)
+
+        # Fehler berechnen (Differenz zwischen gewünschtem Mittelwert und tatsächlichem Mittelwert)
+        error = 50 - mean_value
+
+        # Belichtungszeit mit dem P-Regler anpassen
+        #integral_error += error  # Fehler summieren
+        ExposureTime += Kp * error #+ Ki * integral_error
+
+        # Sicherstellen, dass die Belichtungszeit nicht negativ wird
+        if ExposureTime < 0:
+            ExposureTime = 5 * 1e3  # Setze die Belichtungszeit auf einen minimalen positiven Wert
+
+        # Überprüfen, ob die Bedingungen erfüllt sind
+        if 40 < mean_value < 60 and abs(error) < 10:  # Toleranz von 5 für den Fehler
+            break
+
+    return 
+
+# Die Funktion read_exposure_times bleibt unverändert.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 def get_exposure_values(ser_led1345,ser_led2,exposure_path):
     all_leds = [f"{i}{j:03}" for i in range(3, 6) for j in range(101, 117)]
     for LED in all_leds:
@@ -69,8 +114,7 @@ def get_exposure_values(ser_led1345,ser_led2,exposure_path):
                 ExposureTime -= decrement  # Adjust the exposure time
 
                 #print('Adjusting exposure time')
-                print(f'exposure time: {ExposureTime/1e3} ms')
-                print(f'overexpose: {overexposed_pixels}; mean value: {mean_value}')
+                
 
             i += 1
         #print(f'Iterations: {i}')

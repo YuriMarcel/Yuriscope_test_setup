@@ -7,7 +7,7 @@
 
 #define stepPin_1 13
 #define dirPin_1 12
-
+volatile bool motorRunning = false;  // Globale Variable, um den Motorzustand zu überwachen
 
 AccelStepper stepper0(1, stepPin_0, dirPin_0);   // 1 = Easy Driver interface
 AccelStepper stepper1(1, stepPin_1, dirPin_1);
@@ -78,11 +78,12 @@ void loop() {
       Serial.println("Homeing process started!");
       epos[0]=homeing(home_switch_0,0);
       epos[1]=homeing(home_switch_1,1);
-      
+      Serial.print("Homing Completed");
+
       Serial.print("The encoder_0 is at position:   "); Serial.println(epos[0]);
       Serial.print("The encoder_1 is at position:   "); Serial.println(epos[1]);
-      Serial.println("Homing Completed    ");
-      Serial.print("x");
+      //Serial.print("Homing Completed");
+      //Serial.print("x");
     }
 
     //Serial.print(TravelX);
@@ -109,10 +110,12 @@ void loop() {
 
   switch (w) {
     case 8:
+    motorRunning = true;
       moveStepper(0, distance, epos);
       break;
 
     case 9:
+    motorRunning = true;
       moveStepper(1, distance, epos);
       break;
   }
@@ -145,10 +148,12 @@ int homeing(int home_switch, int i) {
   }
   steppers[i]->setCurrentPosition(0);  // Set the current position as zero for now
   initial_homing = -1;
+  if (i == 1) Serial.print("Homing Completed");
   return 0;
 }
 
 int moveStepper(int i, int d, volatile int ary[]) {
+    if (!motorRunning) return 0;  // Überprüfen Sie, ob der Motor läuft
 
   if ((steppers[i]->distanceToGo() != 0)) { // Check if the Stepper has reached desired position
     steppers[i]->run();  // Move Stepper into position
@@ -164,20 +169,21 @@ int moveStepper(int i, int d, volatile int ary[]) {
       Serial.print("The encoder before correction:   ");
       Serial.println(ary[i]);
       int j = 1;
-      while (error != 0) {
-        delay(100);
-        steppers[i]->move(-error);
-        steppers[i]->run();
-        delay(50);
-        Serial.println(j);
-        j++;
-        error = ary[i] - d;
-      }
+      
+      //while (error != 0) {
+        //delay(100);
+        //steppers[i]->move(-error);
+        //steppers[i]->run();
+        //delay(50);
+        //Serial.println(j);
+        //j++;
+        //error = ary[i] - d;
+      //}
 
       Serial.print("The encoder after correction:   ");
       Serial.println(ary[i] );
       steppers[i]->setCurrentPosition(ary[i]);
-      Serial.print("x");
+      Serial.print("finished");
       error = 0;
       move_finished = 1;
     }
@@ -186,7 +192,7 @@ int moveStepper(int i, int d, volatile int ary[]) {
       //Serial.println("COMPLETED and NO DEVIATION!" );
       //Serial.print("The encoder is at position:  ");
       //Serial.println(ary[i]);
-      Serial.print("x");
+      Serial.print("finished");
       move_finished = 1; // Reset move variable
     }
   }
@@ -196,22 +202,30 @@ int moveStepper(int i, int d, volatile int ary[]) {
 
 void Saftey_0() {
   if (digitalRead(saftey_switch_0)) {
-    Serial.println("Safety Switch 0 activated");
-    stepper0.stop();  // Stop the stepper immediately
-    if (digitalRead(saftey_switch_0)) {
-      delay(100);  // Wait and check again if the safety switch is still activated
-    }
-    Serial.print("x");
+    Serial.print("Safety Switch 0 activated");
+    stepper0.stop();
+    stepper0.setCurrentPosition(stepper0.currentPosition());  // Setzen Sie die aktuelle Position als Zielposition
+        motorRunning = false;  // Setzen Sie den Motorzustand auf gestoppt
+
+    
+    // Stop the stepper immediately
+    //if (digitalRead(saftey_switch_0)) {
+      //delay(100);  // Wait and check again if the safety switch is still activated
+   // }
+    //Serial.print("x");
   }
 }
 void Saftey_1() {
   if (digitalRead(saftey_switch_1)) {
     Serial.println("Safety Switch 1 activated");
     stepper1.stop();  // Stop the stepper immediately
-    if (digitalRead(saftey_switch_1)) {
-      delay(100);  // Wait and check again if the safety switch is still activated
-    }
-    Serial.print("x");
+    //stepper1.distanceToGo(0);
+    stepper1.setCurrentPosition(stepper1.currentPosition());  // Setzen Sie die aktuelle Position als Zielposition
+        motorRunning = false;  // Setzen Sie den Motorzustand auf gestoppt
+
+
+
+   // Serial.print("x");
   }
 }
 

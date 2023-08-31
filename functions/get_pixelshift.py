@@ -1,48 +1,53 @@
+import cv2
 import numpy as np
-import imageio
-import matplotlib.pyplot as plt
+from PIL import Image
+import time
 
-def pixelshift(img1_path, img2_path):
-    # Bilder mit imageio laden
-    image1 = imageio.imread(img1_path, as_gray=True)
-    image2 = imageio.imread(img2_path, as_gray=True)
+def compute_shift(image_path1, image_path2):
+    # Load BMP images and convert to grayscale
 
-    # Diskrete schnelle Fourier-Transformation und komplexe Konjugation von image2
-    image1FFT = np.fft.fft2(image1)
-    image2FFT = np.conjugate(np.fft.fft2(image2))
+    start_time = time.time()
+    img1 = cv2.imread(image_path1, cv2.IMREAD_GRAYSCALE)
+    img2 = cv2.imread(image_path2, cv2.IMREAD_GRAYSCALE)
 
-    # Inverse Fourier-Transformation des Produkts -> entspricht der Kreuzkorrelation
-    imageCCor = np.real(np.fft.ifft2(image1FFT * image2FFT))
+    # Define the motion model
+    warp_mode = cv2.MOTION_TRANSLATION
 
-    # Verschieben Sie die Nullfrequenzkomponente in die Mitte des Spektrums
-    imageCCorShift = np.fft.fftshift(imageCCor)
+    # Define 2x3 or 3x3 matrices and initialize the matrix to identity
+    if warp_mode == cv2.MOTION_HOMOGRAPHY:
+        warp_matrix = np.eye(3, 3, dtype=np.float32)
+    else:
+        warp_matrix = np.eye(2, 3, dtype=np.float32)
 
-    # Bestimmen Sie die Entfernung des Maximums vom Zentrum
-    row, col = image1.shape
-    yShift, xShift = np.unravel_index(np.argmax(imageCCorShift), (row, col))
-    yShift -= int(row / 2)
-    xShift -= int(col / 2)
+    # Specify the number of iterations and termination criteria
+    number_of_iterations = 5000
+    termination_eps = 1e-10
+    criteria = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, number_of_iterations, termination_eps)
 
-    # Ergebnisse anzeigen
-    plt.figure()
-    plt.imshow(image1, cmap='gray')
-    plt.title('Image 1')
+    # Run the ECC algorithm to compute the warp matrix
+    _, warp_matrix = cv2.findTransformECC(img2, img1, warp_matrix, warp_mode, criteria)
 
-    plt.figure()
-    plt.imshow(image2, cmap='gray')
-    plt.title('Image 2')
+    # Extract the translation from the warp matrix
+    dx = warp_matrix[0,2]
+    dy = warp_matrix[1,2]
 
-    plt.figure()
-    plt.imshow(imageCCorShift, cmap='hot')
-    plt.title('Cross-Correlation')
-    plt.colorbar()
+    
+    total_time = time.time() - start_time
+    print(f"Total time needed: {round(total_time,1)}s")
+    return dx, dy
 
-    plt.show()
+paths = [
+    ("/home/rm/Desktop/Yuriscope_pictures/NEMUCO_cells_2/pictures/LED_3101.bmp", "/home/rm/Desktop/Yuriscope_pictures/NEMUCO_cells_2/pictures/LED_3102.bmp"),
+    ("/home/rm/Desktop/Yuriscope_pictures/NEMUCO_cells_2/pictures/LED_3102.bmp", "/home/rm/Desktop/Yuriscope_pictures/NEMUCO_cells_2/pictures/LED_3103.bmp"),
+    ("/home/rm/Desktop/Yuriscope_pictures/NEMUCO_cells_2/pictures/LED_3103.bmp", "/home/rm/Desktop/Yuriscope_pictures/NEMUCO_cells_2/pictures/LED_3104.bmp")
+]
 
-    print("Versatz in x-Richtung [Pixel]:", xShift)
-    print("Versatz in y-Richtung [Pixel]:", yShift)
+# Pixelversatz für jedes Bildpaar berechnen
+shifts = [compute_shift(p1, p2) for p1, p2 in paths]
 
-    return xShift, yShift
+# Durchschnittswerte berechnen
+avg_dx = sum([s[0] for s in shifts]) / len(shifts)
+avg_dy = sum([s[1] for s in shifts]) / len(shifts)
 
-# Beispielaufruf
-x_shift, y_shift = pixelshift('path_to_image1.bmp', 'path_to_image2.bmp')
+print(f"Durchschnittlicher Pixelversatz in x-Richtung: {avg_dx}")
+print(f"Durchschnittlicher Pixelversatz in y-Richtung: {avg_dy}")
