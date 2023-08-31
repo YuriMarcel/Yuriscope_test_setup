@@ -80,4 +80,55 @@ def get_user_input():
 
     return answers
 
+def get_beamcenter_input():
+    # Erstellen Sie das Hauptfenster
+    root = tk.Tk()
+    root.title("Beamcenter Setting")
+
+    # Erstellen Sie ein Label und ein Dropdown-Menü für "Beamcenter setting"
+    label = "Beamcenter setting"
+    options = ["Start finding procedure", "Just show the beamcenter", "Start finding procedure(no figure)", "Just show the beamcenter(no figure)", "skip"]
+    
+    lbl = tk.Label(root, text=label)
+    lbl.pack(padx=10, pady=5)
+
+    dropdown = ttk.Combobox(root, values=options)
+    dropdown.pack(padx=10, pady=5)
+    dropdown.set(options[0])  # Setzen Sie die Standardoption
+
+    # Funktion zum Sammeln von Daten und Schließen des Fensters
+    def collect_data():
+        global answer
+        answer = dropdown.get()
+        root.quit()
+
+    # Hinzufügen einer Schaltfläche zum Abschließen der Eingabe
+    submit_button = tk.Button(root, text="Submit", command=collect_data)
+    submit_button.pack(pady=10)
+
+    root.update_idletasks()
+
+    # Bildschirmbreite und -höhe abrufen
+    screen_width = root.winfo_screenwidth()
+    screen_height = root.winfo_screenheight()
+
+    # Größe des Fensters abrufen
+    window_width = root.winfo_width()
+    window_height = root.winfo_height()
+
+    # Position für das Fenster berechnen
+    x = (screen_width / 2) - (window_width / 2)
+    y = (screen_height / 2) - (window_height / 2)
+
+    # Fensterposition setzen
+    root.geometry(f"{window_width}x{window_height}+{int(x)}+{int(y)}")
+
+    root.mainloop()
+    root.destroy()
+
+    return answer
+
+    
+    
+
 

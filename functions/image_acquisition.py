@@ -29,3 +29,4 @@ def LED80_sequence(exposure_times,folder,ser_led2,ser_led1345):
         else:
             f.LED_control(ser_led1345,"0000")
         
+    print("finished :)")

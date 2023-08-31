@@ -13,7 +13,8 @@ import imageio
 from PIL import Image
 import matplotlib.pyplot as plt
 
-
+#select LEDs
+leds = [f"{i}1{str(j).zfill(2)}" for i in range(1, 6) for j in range(1, 17)]
 
 
 root = None
@@ -22,7 +23,6 @@ root = None
 exposure_label = None
 led_label = None
 current_led_index = 0
-leds = [f"{i}1{str(j).zfill(2)}" for i in range(1, 6) for j in range(1, 17)]
 
 
 def capture_image():

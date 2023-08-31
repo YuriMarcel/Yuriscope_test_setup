@@ -1,4 +1,3 @@
-import serial
 import time
 
 def move_motor(ser_motor,position):
